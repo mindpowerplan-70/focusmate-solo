@@ -3,6 +3,7 @@
 // It includes: hero section, pain points, features, pricing, and email capture
 
 import { useState } from "react";
+import { supabase } from "./supabase";
 
 export default function App() {
   // This tracks what the user types in the email box
@@ -13,9 +14,18 @@ export default function App() {
   // This runs when they click the sign up button
   const handleSubmit = async () => {
     if (!email) return;
-    // For now this just shows the thank you message
-    // We'll connect it to a real email list on Day 4
-    setSubmitted(true);
+
+    try {
+      const { error } = await supabase
+        .from("waitlist")
+        .insert([{ email: email }]);
+
+      if (error) throw error;
+      setSubmitted(true);
+    } catch (error) {
+      console.error("Error saving email:", error);
+      setSubmitted(true);
+    }
   };
 
   return (
