@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
+```
+
+Then:
+```
+git add .
+git commit -m "Add Vercel rewrites for React Router"
+git push
