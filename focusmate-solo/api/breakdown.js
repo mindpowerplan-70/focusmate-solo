@@ -51,7 +51,10 @@ Example: ["Step 1", "Step 2", "Step 3", "Step 4", "Step 5", "Step 6", "Step 7", 
       });
     }
 
-    const content = data.content[0].text;
+    const content = data.content[0].text
+      .replace(/```json\n?/g, "")
+      .replace(/```\n?/g, "")
+      .trim();
     const steps = JSON.parse(content);
     return res.status(200).json({ steps });
   } catch (error) {
