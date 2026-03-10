@@ -1,7 +1,5 @@
 // src/Dashboard.jsx
-// The main app screen users see after logging in
-// Contains: welcome message, quick stats, and the task input box
-// (AI breakdown feature comes Day 5 — today we build the shell)
+// Main app dashboard — now with REAL AI task breakdown!
 
 import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
@@ -9,7 +7,10 @@ import { supabase } from "./supabase";
 export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [task, setTask] = useState("");
+  const [steps, setSteps] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [error, setError] = useState("");
 
   // Get the current logged-in user when the page loads
   useEffect(() => {
@@ -27,6 +28,34 @@ export default function Dashboard() {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     window.location.href = "/";
+  };
+
+  // Call our serverless function to break down the task
+  const handleBreakdown = async () => {
+    if (!task.trim()) return;
+
+    setAiLoading(true);
+    setError("");
+    setSteps([]);
+
+    try {
+      const response = await fetch("/api/breakdown", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ task }),
+      });
+
+      const data = await response.json();
+
+      if (data.error) throw new Error(data.error);
+
+      setSteps(data.steps);
+    } catch (err) {
+      setError("Something went wrong. Please try again!");
+      console.error(err);
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   if (loading) {
@@ -70,7 +99,11 @@ export default function Dashboard() {
           {[
             { label: "Hours tracked today", value: "0.0h", color: "#a78bfa" },
             { label: "Income recovered today", value: "£0", color: "#34d399" },
-            { label: "Tasks broken down", value: "0", color: "#60a5fa" },
+            {
+              label: "Tasks broken down",
+              value: steps.length > 0 ? "1" : "0",
+              color: "#60a5fa",
+            },
           ].map((stat, i) => (
             <div key={i} style={styles.statCard}>
               <div style={{ ...styles.statValue, color: stat.color }}>
@@ -82,7 +115,6 @@ export default function Dashboard() {
         </div>
 
         {/* ---- TASK BREAKDOWN INPUT ---- */}
-        {/* This is the core feature — AI breakdown comes Day 5 */}
         <div style={styles.taskCard}>
           <h2 style={styles.taskTitle}>
             🧠 What are you most avoiding right now?
@@ -99,15 +131,41 @@ export default function Dashboard() {
             rows={3}
           />
           <button
-            style={styles.breakdownBtn}
-            onClick={() => alert("AI breakdown coming tomorrow! 🚀")}
+            style={{
+              ...styles.breakdownBtn,
+              opacity: aiLoading ? 0.7 : 1,
+              cursor: aiLoading ? "not-allowed" : "pointer",
+            }}
+            onClick={handleBreakdown}
+            disabled={aiLoading}
           >
-            ✨ Break it down for me
+            {aiLoading ? "🧠 Thinking..." : "✨ Break it down for me"}
           </button>
           <p style={styles.taskHint}>
             The AI will split this into 8 specific steps, starting with the
             easiest one. The wall of awful disappears.
           </p>
+
+          {/* Error message */}
+          {error && <p style={styles.errorText}>{error}</p>}
+
+          {/* ---- AI STEPS OUTPUT ---- */}
+          {steps.length > 0 && (
+            <div style={styles.stepsContainer}>
+              <h3 style={styles.stepsTitle}>
+                ✅ Here's your plan — start with Step 1:
+              </h3>
+              {steps.map((step, index) => (
+                <div key={index} style={styles.stepItem}>
+                  <div style={styles.stepNumber}>{index + 1}</div>
+                  <div style={styles.stepText}>{step}</div>
+                </div>
+              ))}
+              <p style={styles.stepsFooter}>
+                💜 You only need to start Step 1. The rest will follow.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* ---- FORGIVENESS MODE ---- */}
@@ -213,7 +271,6 @@ const styles = {
   },
   header: {
     marginBottom: "2rem",
-    paddingTop: "1rem",
   },
   greeting: {
     fontSize: "1.8rem",
@@ -288,14 +345,62 @@ const styles = {
     borderRadius: "8px",
     fontSize: "1rem",
     fontWeight: "600",
-    cursor: "pointer",
     marginBottom: "0.75rem",
   },
   taskHint: {
     color: "#555",
     fontSize: "0.8rem",
-    margin: 0,
+    margin: "0 0 1rem",
     lineHeight: 1.6,
+  },
+  errorText: {
+    color: "#f87171",
+    fontSize: "0.9rem",
+    margin: "0.5rem 0",
+  },
+  stepsContainer: {
+    marginTop: "1.5rem",
+    backgroundColor: "#0f0f13",
+    borderRadius: "12px",
+    padding: "1.25rem",
+    border: "1px solid #a78bfa33",
+  },
+  stepsTitle: {
+    color: "#a78bfa",
+    fontSize: "1rem",
+    fontWeight: "600",
+    margin: "0 0 1rem",
+  },
+  stepItem: {
+    display: "flex",
+    gap: "1rem",
+    alignItems: "flex-start",
+    marginBottom: "0.75rem",
+  },
+  stepNumber: {
+    backgroundColor: "#a78bfa",
+    color: "#fff",
+    borderRadius: "50%",
+    width: "28px",
+    height: "28px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "0.8rem",
+    fontWeight: "700",
+    flexShrink: 0,
+  },
+  stepText: {
+    color: "#e0e0e0",
+    fontSize: "0.95rem",
+    lineHeight: 1.6,
+    paddingTop: "4px",
+  },
+  stepsFooter: {
+    color: "#666",
+    fontSize: "0.85rem",
+    marginTop: "1rem",
+    textAlign: "center",
   },
   forgivenessCard: {
     backgroundColor: "#1a1a24",
