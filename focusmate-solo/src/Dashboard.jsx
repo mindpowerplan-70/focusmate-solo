@@ -115,7 +115,7 @@ export default function Dashboard() {
       </div>
     );
   // Paywall — redirect to pricing if not subscribed
-  if (!loading && !isSubscribed) {
+  if (!loading && user && !isSubscribed) {
     window.location.href = "/pricing";
     return null;
   }
