@@ -17,6 +17,7 @@ import IncomeStats from "./IncomeStats";
 export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isSubscribed, setIsSubscribed] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [task, setTask] = useState("");
   const [breakdown, setBreakdown] = useState([]);
@@ -26,8 +27,17 @@ export default function Dashboard() {
 
   // ---- GET CURRENT USER ----
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(async ({ data }) => {
       setUser(data.user);
+      if (data.user) {
+        // Check if user has active subscription
+        const { data: sub } = await supabase
+          .from("subscriptions")
+          .select("status")
+          .eq("user_id", data.user.id)
+          .single();
+        setIsSubscribed(sub?.status === "active");
+      }
       setLoading(false);
     });
   }, []);
@@ -104,7 +114,11 @@ export default function Dashboard() {
         Loading...
       </div>
     );
-
+  // Paywall — redirect to pricing if not subscribed
+  if (!loading && !isSubscribed) {
+    window.location.href = "/pricing";
+    return null;
+  }
   return (
     <div
       style={{

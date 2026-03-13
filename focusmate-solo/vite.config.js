@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    strictPort: true, // Forces port 3000, won't silently switch to another
+    strictPort: true,
+    host: true, // 👈 This is the fix — no more -- --host every morning
   },
 });
