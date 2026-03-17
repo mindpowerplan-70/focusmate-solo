@@ -3,6 +3,7 @@ import { supabase } from "./supabase";
 import TimeTracker from "./TimeTracker";
 import ForgivenessMode from "./ForgivenessMode";
 import IncomeStats from "./IncomeStats";
+import Settings from "./Settings";
 
 // ============================================
 // DASHBOARD — Main app screen after login
@@ -186,6 +187,7 @@ export default function Dashboard() {
             { id: "tracker", label: "⏱ Time Tracker" },
             { id: "forgiveness", label: "💜 Forgiveness Mode" },
             { id: "ai", label: "🤖 AI Breakdown" },
+            { id: "settings", label: "⚙️ Settings" },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -297,6 +299,7 @@ export default function Dashboard() {
             )}
           </div>
         )}
+        {activeTab === "settings" && <Settings />}
 
         {/* ---- RECENT ENTRIES ---- */}
         {entries.length > 0 && (
