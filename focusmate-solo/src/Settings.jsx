@@ -1,20 +1,17 @@
 // Settings.jsx
-// This page lets users view and update their hourly rate and display name
-// It reads from and writes to the 'profiles' table in Supabase
+// Lets users update their display name and hourly rate
+// Reads from and writes to the 'profiles' table in Supabase
 
 import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
 
-export default function Settings() {
-  // Store the values the user types in
+export default function Settings({ onSaved }) {
   const [hourlyRate, setHourlyRate] = useState("");
   const [displayName, setDisplayName] = useState("");
-
-  // UI state — are we saving? did it work?
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
-  // When the page loads, fetch the user's existing profile data
+  // Load existing profile data on mount
   useEffect(() => {
     async function loadProfile() {
       const {
@@ -22,10 +19,10 @@ export default function Settings() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("profiles")
         .select("hourly_rate, full_name")
-        .eq("email", user.email)
+        .eq("id", user.id)
         .single();
 
       if (data) {
@@ -33,11 +30,10 @@ export default function Settings() {
         setDisplayName(data.full_name ?? "");
       }
     }
-
     loadProfile();
   }, []);
 
-  // Called when the user clicks Save
+  // Save updated profile to Supabase
   async function handleSave() {
     setSaving(true);
     setMessage("");
@@ -47,7 +43,6 @@ export default function Settings() {
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Use email to match the row instead of id
     const { error } = await supabase
       .from("profiles")
       .update({
@@ -55,7 +50,7 @@ export default function Settings() {
         full_name: displayName,
         updated_at: new Date().toISOString(),
       })
-      .eq("email", user.email);
+      .eq("id", user.id);
 
     setSaving(false);
 
@@ -64,6 +59,8 @@ export default function Settings() {
       setMessage("❌ Something went wrong. Please try again.");
     } else {
       setMessage("✅ Settings saved!");
+      // Tell Dashboard the rate changed so TimeTracker updates immediately
+      if (onSaved) onSaved();
     }
   }
 
@@ -85,7 +82,7 @@ export default function Settings() {
         Your hourly rate powers all income calculations in FocusMate Solo.
       </p>
 
-      {/* Display Name Field */}
+      {/* Display Name */}
       <div style={{ marginBottom: "24px" }}>
         <label
           style={{
@@ -115,7 +112,7 @@ export default function Settings() {
         />
       </div>
 
-      {/* Hourly Rate Field */}
+      {/* Hourly Rate */}
       <div style={{ marginBottom: "32px" }}>
         <label
           style={{
@@ -168,7 +165,6 @@ export default function Settings() {
         {saving ? "Saving..." : "Save Settings"}
       </button>
 
-      {/* Success / Error Message */}
       {message && (
         <p style={{ marginTop: "16px", textAlign: "center", fontSize: "14px" }}>
           {message}

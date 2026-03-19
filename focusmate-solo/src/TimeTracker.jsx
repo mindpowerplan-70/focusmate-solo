@@ -5,9 +5,11 @@ import { supabase } from "./supabase";
 // TIME TRACKER COMPONENT
 // A live stopwatch that saves billable hours
 // to Supabase when the user stops it
+// Fix: secondsRef tracks true current value
+// so handleStop always reads the right time
 // ============================================
 
-export default function TimeTracker({ user, onEntrySaved }) {
+export default function TimeTracker({ user, onEntrySaved, profileRate }) {
   const [isRunning, setIsRunning] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [description, setDescription] = useState("");
@@ -16,11 +18,18 @@ export default function TimeTracker({ user, onEntrySaved }) {
   const [message, setMessage] = useState("");
   const intervalRef = useRef(null);
 
+  // ---- THIS IS THE FIX ----
+  // secondsRef always holds the true current value of seconds
+  // React state (seconds) can be stale inside async callbacks
+  // but a ref is always up to date
+  const secondsRef = useRef(0);
+
   // ---- TIMER LOGIC ----
   useEffect(() => {
     if (isRunning) {
       intervalRef.current = setInterval(() => {
-        setSeconds((s) => s + 1);
+        secondsRef.current += 1; // update ref every tick
+        setSeconds(secondsRef.current); // update state for display
       }, 1000);
     } else {
       clearInterval(intervalRef.current);
@@ -45,8 +54,14 @@ export default function TimeTracker({ user, onEntrySaved }) {
 
   // ---- SAVE ENTRY TO SUPABASE ----
   const handleStop = async () => {
+    // Stop the timer
     setIsRunning(false);
-    if (seconds < 60) {
+    clearInterval(intervalRef.current);
+
+    // Read from the REF not the state — always accurate
+    const currentSeconds = secondsRef.current;
+
+    if (currentSeconds < 60) {
       setMessage("⚠️ Minimum 1 minute to save an entry.");
       return;
     }
@@ -56,7 +71,7 @@ export default function TimeTracker({ user, onEntrySaved }) {
     }
 
     setSaving(true);
-    const durationMinutes = Math.round(seconds / 60);
+    const durationMinutes = Math.round(currentSeconds / 60);
 
     const { error } = await supabase.from("time_entries").insert({
       user_id: user.id,
@@ -72,11 +87,21 @@ export default function TimeTracker({ user, onEntrySaved }) {
       setMessage("❌ Error saving entry. Try again.");
     } else {
       setMessage(`✅ Saved! You just logged ${durationMinutes} minutes.`);
+      // Reset everything including the ref
+      secondsRef.current = 0;
       setSeconds(0);
       setDescription("");
-      if (onEntrySaved) onEntrySaved(); // tells Dashboard to refresh
+      if (onEntrySaved) onEntrySaved();
     }
   };
+
+  // When profileRate changes (e.g. user saves Settings), update the field
+  // Only updates if timer isn't running — don't interrupt a live session
+  useEffect(() => {
+    if (!isRunning && profileRate) {
+      setHourlyRate(profileRate);
+    }
+  }, [profileRate]);
 
   return (
     <div
@@ -112,7 +137,7 @@ export default function TimeTracker({ user, onEntrySaved }) {
         }}
       />
 
-      {/* HOURLY RATE */}
+      {/* HOURLY RATE — pre-filled from Settings, overrideable per session */}
       <div
         style={{
           display: "flex",
@@ -137,6 +162,9 @@ export default function TimeTracker({ user, onEntrySaved }) {
             fontSize: "15px",
           }}
         />
+        <span style={{ color: "#4a5568", fontSize: "12px" }}>
+          (override per session if needed)
+        </span>
       </div>
 
       {/* TIMER DISPLAY */}
@@ -153,7 +181,7 @@ export default function TimeTracker({ user, onEntrySaved }) {
         {formatTime(seconds)}
       </div>
 
-      {/* INCOME EARNED */}
+      {/* INCOME EARNED SO FAR — only shows while running */}
       {isRunning && (
         <div
           style={{

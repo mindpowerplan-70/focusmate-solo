@@ -4,6 +4,7 @@ import TimeTracker from "./TimeTracker";
 import ForgivenessMode from "./ForgivenessMode";
 import IncomeStats from "./IncomeStats";
 import Settings from "./Settings";
+import WeeklyReport from "./WeeklyReport";
 
 // ============================================
 // DASHBOARD — Main app screen after login
@@ -12,7 +13,8 @@ import Settings from "./Settings";
 // 2. Live Time Tracker
 // 3. Forgiveness Mode
 // 4. AI Task Breakdown
-// 5. Recent Entries log
+// 5. Settings
+// 6. Weekly Report
 // ============================================
 
 export default function Dashboard() {
@@ -24,20 +26,36 @@ export default function Dashboard() {
   const [breakdown, setBreakdown] = useState([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [entries, setEntries] = useState([]);
-  const [activeTab, setActiveTab] = useState("tracker"); // tracker | forgiveness | ai
+  const [profileRate, setProfileRate] = useState(75);
+  const [activeTab, setActiveTab] = useState("tracker");
+
+  // ---- FETCH PROFILE RATE ----
+  // Accepts user directly to avoid stale state timing issues
+  const fetchProfileRate = async (currentUser) => {
+    const targetUser = currentUser || user;
+    if (!targetUser) return;
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("hourly_rate")
+      .eq("id", targetUser.id)
+      .single();
+    if (profile?.hourly_rate) setProfileRate(profile.hourly_rate);
+  };
 
   // ---- GET CURRENT USER ----
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
       setUser(data.user);
       if (data.user) {
-        // Check if user has active subscription
+        // Check subscription status
         const { data: sub } = await supabase
           .from("subscriptions")
           .select("status")
           .eq("user_id", data.user.id)
           .single();
         setIsSubscribed(sub?.status === "active");
+        // Fetch profile rate immediately — user object passed directly
+        fetchProfileRate(data.user);
       }
       setLoading(false);
     });
@@ -59,7 +77,6 @@ export default function Dashboard() {
   };
 
   // ---- TRIGGERED WHEN ANY ENTRY IS SAVED ----
-  // This causes IncomeStats and entries list to refresh
   const handleEntrySaved = () => {
     setRefreshTrigger((n) => n + 1);
   };
@@ -115,11 +132,13 @@ export default function Dashboard() {
         Loading...
       </div>
     );
+
   // Paywall — redirect to pricing if not subscribed
   if (!loading && user && !isSubscribed) {
     window.location.href = "/pricing";
     return null;
   }
+
   return (
     <div
       style={{
@@ -188,6 +207,7 @@ export default function Dashboard() {
             { id: "forgiveness", label: "💜 Forgiveness Mode" },
             { id: "ai", label: "🤖 AI Breakdown" },
             { id: "settings", label: "⚙️ Settings" },
+            { id: "report", label: "📊 Weekly Report" },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -214,15 +234,25 @@ export default function Dashboard() {
 
         {/* ---- TAB CONTENT ---- */}
 
-        {/* TIME TRACKER TAB */}
-        {activeTab === "tracker" && user && (
-          <TimeTracker user={user} onEntrySaved={handleEntrySaved} />
-        )}
+        {/* TIME TRACKER — hidden not unmounted so timer survives tab switches */}
+        <div style={{ display: activeTab === "tracker" ? "block" : "none" }}>
+          {user && (
+            <TimeTracker
+              user={user}
+              onEntrySaved={handleEntrySaved}
+              profileRate={profileRate}
+            />
+          )}
+        </div>
 
-        {/* FORGIVENESS MODE TAB */}
-        {activeTab === "forgiveness" && user && (
-          <ForgivenessMode user={user} onEntrySaved={handleEntrySaved} />
-        )}
+        {/* FORGIVENESS MODE — hidden not unmounted */}
+        <div
+          style={{ display: activeTab === "forgiveness" ? "block" : "none" }}
+        >
+          {user && (
+            <ForgivenessMode user={user} onEntrySaved={handleEntrySaved} />
+          )}
+        </div>
 
         {/* AI BREAKDOWN TAB */}
         {activeTab === "ai" && (
@@ -299,7 +329,14 @@ export default function Dashboard() {
             )}
           </div>
         )}
-        {activeTab === "settings" && <Settings />}
+
+        {/* SETTINGS TAB — onSaved refreshes profileRate in TimeTracker */}
+        {activeTab === "settings" && (
+          <Settings onSaved={() => fetchProfileRate()} />
+        )}
+
+        {/* WEEKLY REPORT TAB */}
+        {activeTab === "report" && <WeeklyReport />}
 
         {/* ---- RECENT ENTRIES ---- */}
         {entries.length > 0 && (
