@@ -5,7 +5,15 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
+    host: true,
     strictPort: true,
-    host: true, // 👈 This is the fix — no more -- --host every morning
+    // Proxy /api calls to Vercel in local dev
+    proxy: {
+      "/api": {
+        target: "https://focusmate-solo.vercel.app",
+        changeOrigin: true,
+        secure: true,
+      },
+    },
   },
 });
