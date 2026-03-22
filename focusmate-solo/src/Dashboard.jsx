@@ -250,7 +250,11 @@ export default function Dashboard() {
           style={{ display: activeTab === "forgiveness" ? "block" : "none" }}
         >
           {user && (
-            <ForgivenessMode user={user} onEntrySaved={handleEntrySaved} />
+            <ForgivenessMode
+              user={user}
+              onEntrySaved={handleEntrySaved}
+              profileRate={profileRate}
+            />
           )}
         </div>
 

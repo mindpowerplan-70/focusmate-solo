@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
 
 // ============================================
@@ -8,11 +8,16 @@ import { supabase } from "./supabase";
 // Every entry shows the £ value recovered.
 // ============================================
 
-export default function ForgivenessMode({ user, onEntrySaved }) {
+export default function ForgivenessMode({ user, onEntrySaved, profileRate }) {
   const [description, setDescription] = useState("");
   const [hours, setHours] = useState(1);
   const [minutes, setMinutes] = useState(0);
-  const [hourlyRate, setHourlyRate] = useState(75);
+  const [hourlyRate, setHourlyRate] = useState(profileRate || 75);
+
+  // Keep hourlyRate in sync when profileRate loads from Supabase
+  useEffect(() => {
+    if (profileRate) setHourlyRate(profileRate);
+  }, [profileRate]);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 

@@ -1,206 +1,114 @@
-import { useState, useEffect } from "react";
+// src/IncomeStats.jsx
+// Shows income summary stats pulled from Supabase time_entries
+// Displays empty state if no entries exist yet
+
+import { useEffect, useState } from "react";
 import { supabase } from "./supabase";
 
-// ============================================
-// INCOME RECOVERY STATS COMPONENT
-// Shows the user real £ numbers:
-// - Total recovered this week
-// - Total tracked this week
-// - All-time recovery amount
-// - Number of forgiveness entries
-// This is the number that justifies £79/month
-// ============================================
-
-export default function IncomeStats({ user, refreshTrigger }) {
-  const [stats, setStats] = useState(null);
+export default function IncomeStats({ user, hourlyRate }) {
+  const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // ---- FETCH STATS FROM SUPABASE ----
   useEffect(() => {
-    if (user) fetchStats();
-  }, [user, refreshTrigger]); // refreshTrigger re-runs this when new entry saved
+    if (!user) return;
 
-  const fetchStats = async () => {
-    setLoading(true);
+    const fetchEntries = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("time_entries")
+        .select("*")
+        .eq("user_id", user.id);
 
-    // Get start of current week (Monday)
-    const now = new Date();
-    const dayOfWeek = now.getDay();
-    const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-    const weekStart = new Date(now.setDate(diff));
-    weekStart.setHours(0, 0, 0, 0);
-
-    // Fetch ALL entries for this user
-    const { data, error } = await supabase
-      .from("time_entries")
-      .select("*")
-      .eq("user_id", user.id);
-
-    if (error || !data) {
+      if (!error) setEntries(data || []);
       setLoading(false);
-      return;
-    }
+    };
 
-    // ---- CALCULATE STATS ----
-    const weekEntries = data.filter((e) => new Date(e.created_at) >= weekStart);
+    fetchEntries();
+  }, [user]);
 
-    // This week — forgotten time (Forgiveness Mode)
-    const weekForgotten = weekEntries.filter((e) => e.is_forgotten);
-    const weekForgottenIncome = weekForgotten.reduce(
-      (sum, e) => sum + (e.duration_minutes / 60) * e.hourly_rate,
-      0,
-    );
+  // Calculate totals
+  const totalMinutes = entries.reduce(
+    (sum, e) => sum + (e.duration_minutes || 0),
+    0,
+  );
+  const totalHours = (totalMinutes / 60).toFixed(1);
+  const totalIncome = entries.reduce((sum, e) => {
+    const rate = e.hourly_rate || hourlyRate || 0;
+    return sum + (e.duration_minutes / 60) * rate;
+  }, 0);
 
-    // This week — tracked time (Live Timer)
-    const weekTracked = weekEntries.filter((e) => !e.is_forgotten);
-    const weekTrackedIncome = weekTracked.reduce(
-      (sum, e) => sum + (e.duration_minutes / 60) * e.hourly_rate,
-      0,
-    );
-
-    // All time — total recovered via Forgiveness Mode
-    const allForgotten = data.filter((e) => e.is_forgotten);
-    const allTimeRecovered = allForgotten.reduce(
-      (sum, e) => sum + (e.duration_minutes / 60) * e.hourly_rate,
-      0,
-    );
-
-    // Total hours logged this week
-    const weekMinutes = weekEntries.reduce(
-      (sum, e) => sum + e.duration_minutes,
-      0,
-    );
-
-    setStats({
-      weekForgottenIncome: weekForgottenIncome.toFixed(2),
-      weekTrackedIncome: weekTrackedIncome.toFixed(2),
-      weekTotalHours: (weekMinutes / 60).toFixed(1),
-      allTimeRecovered: allTimeRecovered.toFixed(2),
-      forgivenessCount: allForgotten.length,
-    });
-
-    setLoading(false);
-  };
-
-  if (loading)
+  // Loading state
+  if (loading) {
     return (
-      <div style={{ color: "#a0aec0", padding: "16px", textAlign: "center" }}>
+      <div style={{ textAlign: "center", padding: "2rem", color: "#a78bfa" }}>
         Loading your stats...
       </div>
     );
+  }
 
-  if (!stats) return null;
-
-  return (
-    <div style={{ marginBottom: "32px" }}>
-      <h2 style={{ color: "#a78bfa", marginBottom: "16px" }}>
-        📊 Your Income Recovery
-      </h2>
-
-      {/* STATS GRID */}
+  // Empty state — no entries yet
+  if (entries.length === 0) {
+    return (
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: "16px",
+          textAlign: "center",
+          padding: "2rem",
+          background: "rgba(167,139,250,0.08)",
+          borderRadius: "12px",
+          border: "1px dashed #a78bfa",
+          color: "#c4b5fd",
         }}
       >
-        {/* RECOVERED THIS WEEK */}
-        <div
-          style={{
-            background: "#1a1a2e",
-            border: "1px solid #6d28d9",
-            borderRadius: "12px",
-            padding: "20px",
-            textAlign: "center",
-          }}
-        >
-          <p
-            style={{ color: "#a0aec0", fontSize: "13px", margin: "0 0 8px 0" }}
-          >
-            💜 Recovered This Week
-          </p>
-          <p
-            style={{
-              color: "#68d391",
-              fontSize: "32px",
-              fontWeight: "bold",
-              margin: 0,
-            }}
-          >
-            £{stats.weekForgottenIncome}
-          </p>
-          <p
-            style={{ color: "#a0aec0", fontSize: "12px", margin: "4px 0 0 0" }}
-          >
-            via Forgiveness Mode
-          </p>
-        </div>
+        <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>💸</div>
+        <p style={{ margin: 0, fontWeight: 600 }}>No income tracked yet</p>
+        <p style={{ margin: "0.5rem 0 0", fontSize: "0.9rem", opacity: 0.8 }}>
+          Start your first session and watch the money add up!
+        </p>
+      </div>
+    );
+  }
 
-        {/* TRACKED THIS WEEK */}
-        <div
-          style={{
-            background: "#1a1a2e",
-            border: "1px solid #a78bfa",
-            borderRadius: "12px",
-            padding: "20px",
-            textAlign: "center",
-          }}
-        >
-          <p
-            style={{ color: "#a0aec0", fontSize: "13px", margin: "0 0 8px 0" }}
-          >
-            ⏱ Tracked This Week
-          </p>
-          <p
-            style={{
-              color: "#a78bfa",
-              fontSize: "32px",
-              fontWeight: "bold",
-              margin: 0,
-            }}
-          >
-            £{stats.weekTrackedIncome}
-          </p>
-          <p
-            style={{ color: "#a0aec0", fontSize: "12px", margin: "4px 0 0 0" }}
-          >
-            {stats.weekTotalHours} hours logged
-          </p>
-        </div>
-
-        {/* ALL TIME RECOVERED */}
-        <div
-          style={{
-            background: "#1a1a2e",
-            border: "1px solid #68d391",
-            borderRadius: "12px",
-            padding: "20px",
-            textAlign: "center",
-          }}
-        >
-          <p
-            style={{ color: "#a0aec0", fontSize: "13px", margin: "0 0 8px 0" }}
-          >
-            🏆 All-Time Recovered
-          </p>
-          <p
-            style={{
-              color: "#68d391",
-              fontSize: "32px",
-              fontWeight: "bold",
-              margin: 0,
-            }}
-          >
-            £{stats.allTimeRecovered}
-          </p>
-          <p
-            style={{ color: "#a0aec0", fontSize: "12px", margin: "4px 0 0 0" }}
-          >
-            across {stats.forgivenessCount} forgotten entries
-          </p>
-        </div>
+  // Normal state — show stats
+  return (
+    <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+      <div style={statCard}>
+        <span style={statLabel}>Total Hours</span>
+        <span style={statValue}>{totalHours}h</span>
+      </div>
+      <div style={statCard}>
+        <span style={statLabel}>Income Recovered</span>
+        <span style={statValue}>£{totalIncome.toFixed(2)}</span>
+      </div>
+      <div style={statCard}>
+        <span style={statLabel}>Sessions Logged</span>
+        <span style={statValue}>{entries.length}</span>
       </div>
     </div>
   );
 }
+
+// Styles
+const statCard = {
+  flex: 1,
+  minWidth: "120px",
+  background: "rgba(167,139,250,0.1)",
+  borderRadius: "12px",
+  padding: "1rem",
+  display: "flex",
+  flexDirection: "column",
+  gap: "0.25rem",
+  border: "1px solid rgba(167,139,250,0.2)",
+};
+
+const statLabel = {
+  fontSize: "0.8rem",
+  color: "#a78bfa",
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
+};
+
+const statValue = {
+  fontSize: "1.5rem",
+  fontWeight: 700,
+  color: "#fff",
+};
