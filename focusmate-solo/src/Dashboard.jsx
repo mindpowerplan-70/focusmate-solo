@@ -47,13 +47,22 @@ export default function Dashboard() {
     supabase.auth.getUser().then(async ({ data }) => {
       setUser(data.user);
       if (data.user) {
-        // Check subscription status
-        const { data: sub } = await supabase
-          .from("subscriptions")
-          .select("status")
-          .eq("user_id", data.user.id)
-          .single();
-        setIsSubscribed(sub?.status === "active");
+        // Check subscription status — retry loop handles webhook timing delay
+        let isActive = false;
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const { data: sub } = await supabase
+            .from("subscriptions")
+            .select("status")
+            .eq("user_id", data.user.id)
+            .single();
+          if (sub?.status === "active") {
+            isActive = true;
+            break;
+          }
+          // Wait 1 second before trying again
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+        setIsSubscribed(isActive);
         // Fetch profile rate immediately — user object passed directly
         fetchProfileRate(data.user);
       }
