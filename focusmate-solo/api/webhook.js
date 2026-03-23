@@ -17,6 +17,7 @@ export default async function handler(req, res) {
   let event;
 
   try {
+    // req.body must be the raw buffer — Vercel config below ensures this
     event = stripe.webhooks.constructEvent(
       req.body,
       sig,
@@ -80,3 +81,11 @@ export default async function handler(req, res) {
 
   return res.status(200).json({ received: true });
 }
+
+// This is the critical fix — tells Vercel NOT to parse the body
+// Stripe needs the raw unparsed body to verify its signature
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
