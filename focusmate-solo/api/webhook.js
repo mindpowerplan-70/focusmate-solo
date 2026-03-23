@@ -8,6 +8,17 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
+// Reads the raw request body as a buffer
+// This is required because Stripe needs the unparsed body to verify signatures
+async function getRawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on("data", (chunk) => chunks.push(chunk));
+    req.on("end", () => resolve(Buffer.concat(chunks)));
+    req.on("error", reject);
+  });
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -17,9 +28,10 @@ export default async function handler(req, res) {
   let event;
 
   try {
-    // req.body must be the raw buffer — Vercel config below ensures this
+    // Get raw body manually instead of relying on bodyParser config
+    const rawBody = await getRawBody(req);
     event = stripe.webhooks.constructEvent(
-      req.body,
+      rawBody,
       sig,
       process.env.STRIPE_WEBHOOK_SECRET,
     );
@@ -82,8 +94,6 @@ export default async function handler(req, res) {
   return res.status(200).json({ received: true });
 }
 
-// This is the critical fix — tells Vercel NOT to parse the body
-// Stripe needs the raw unparsed body to verify its signature
 export const config = {
   api: {
     bodyParser: false,
