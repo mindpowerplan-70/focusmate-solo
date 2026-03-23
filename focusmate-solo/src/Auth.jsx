@@ -2,7 +2,7 @@
 // Handles both Login and Signup in one component
 // Uses Supabase's built-in auth system
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
 
 export default function Auth() {
@@ -11,6 +11,36 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+
+  // ---- HANDLE EMAIL CONFIRMATION REDIRECT ----
+  // When a user clicks the confirmation link in their email,
+  // Supabase redirects them to /auth with a token in the URL hash.
+  // This detects that token and logs them in automatically.
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && hash.includes("access_token")) {
+      setLoading(true);
+      setMessage("✅ Email confirmed! Logging you in...");
+      supabase.auth.getSession().then(({ data }) => {
+        if (data?.session) {
+          window.location.href = "/dashboard";
+        } else {
+          // Session not ready yet — wait a moment and try again
+          setTimeout(() => {
+            supabase.auth.getSession().then(({ data: retryData }) => {
+              if (retryData?.session) {
+                window.location.href = "/dashboard";
+              } else {
+                setLoading(false);
+                setMessage("✅ Email confirmed! Please log in below.");
+                setMode("login");
+              }
+            });
+          }, 1500);
+        }
+      });
+    }
+  }, []);
 
   const handleAuth = async () => {
     setLoading(true);
