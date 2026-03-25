@@ -3,6 +3,7 @@
 // Uses Supabase's built-in auth system
 
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "./supabase";
 
 export default function Auth() {
@@ -11,11 +12,9 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const navigate = useNavigate();
 
   // ---- HANDLE EMAIL CONFIRMATION REDIRECT ----
-  // When a user clicks the confirmation link in their email,
-  // Supabase redirects them to /auth with a token in the URL hash.
-  // This detects that token and logs them in automatically.
   useEffect(() => {
     const hash = window.location.hash;
     if (hash && hash.includes("access_token")) {
@@ -23,13 +22,12 @@ export default function Auth() {
       setMessage("✅ Email confirmed! Logging you in...");
       supabase.auth.getSession().then(({ data }) => {
         if (data?.session) {
-          window.location.href = "/dashboard";
+          navigate("/dashboard");
         } else {
-          // Session not ready yet — wait a moment and try again
           setTimeout(() => {
             supabase.auth.getSession().then(({ data: retryData }) => {
               if (retryData?.session) {
-                window.location.href = "/dashboard";
+                navigate("/dashboard");
               } else {
                 setLoading(false);
                 setMessage("✅ Email confirmed! Please log in below.");
@@ -48,19 +46,25 @@ export default function Auth() {
 
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
         });
         if (error) throw error;
-        setMessage("✅ Check your email to confirm your account!");
+        // Email confirmation is disabled — redirect straight to dashboard
+        if (data?.user) {
+          setMessage("✅ Account created! Redirecting...");
+          setTimeout(() => {
+            navigate("/dashboard");
+          }, 1000);
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
-        window.location.href = "/dashboard";
+        navigate("/dashboard");
       }
     } catch (error) {
       setMessage(`❌ ${error.message}`);
