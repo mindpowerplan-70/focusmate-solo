@@ -52,14 +52,25 @@ export default function Dashboard() {
         const isSuccessRedirect =
           window.location.search.includes("payment=success") ||
           window.location.search.includes("success=true");
-        console.log("Success redirect detected:", isSuccessRedirect);
-        console.log("Full URL:", window.location.href);
+
+        // If coming from payment, call activate endpoint first
+        if (isSuccessRedirect) {
+          try {
+            await fetch("/api/activate-subscription", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                userId: data.user.id,
+                email: data.user.email,
+              }),
+            });
+          } catch (err) {
+            console.error("Activation error:", err);
+          }
+        }
 
         let isActive = false;
-        const maxAttempts = isSuccessRedirect ? 10 : 3;
-        const waitTime = isSuccessRedirect ? 2000 : 1000;
-
-        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        for (let attempt = 0; attempt < 5; attempt++) {
           const { data: sub } = await supabase
             .from("subscriptions")
             .select("status")
@@ -69,8 +80,7 @@ export default function Dashboard() {
             isActive = true;
             break;
           }
-          // Wait before trying again
-          await new Promise((resolve) => setTimeout(resolve, waitTime));
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         }
         setIsSubscribed(isActive);
         // Fetch profile rate immediately — user object passed directly
