@@ -27,6 +27,11 @@ export default async function handler(req, res) {
       metadata: {
         supabase_user_id: userId,
       },
+      subscription_data: {
+        metadata: {
+          supabase_user_id: userId,
+        },
+      },
       success_url: `${req.headers.origin}/dashboard?payment=success`,
       cancel_url: `${req.headers.origin}/pricing?payment=cancelled`,
     });

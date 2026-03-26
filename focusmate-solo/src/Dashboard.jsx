@@ -48,8 +48,18 @@ export default function Dashboard() {
       setUser(data.user);
       if (data.user) {
         // Check subscription status — retry loop handles webhook timing delay
+        // Check if coming from successful payment
+        const isSuccessRedirect =
+          window.location.search.includes("payment=success") ||
+          window.location.search.includes("success=true");
+        console.log("Success redirect detected:", isSuccessRedirect);
+        console.log("Full URL:", window.location.href);
+
         let isActive = false;
-        for (let attempt = 0; attempt < 5; attempt++) {
+        const maxAttempts = isSuccessRedirect ? 10 : 3;
+        const waitTime = isSuccessRedirect ? 2000 : 1000;
+
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
           const { data: sub } = await supabase
             .from("subscriptions")
             .select("status")
@@ -59,8 +69,8 @@ export default function Dashboard() {
             isActive = true;
             break;
           }
-          // Wait 1 second before trying again
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          // Wait before trying again
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
         }
         setIsSubscribed(isActive);
         // Fetch profile rate immediately — user object passed directly
