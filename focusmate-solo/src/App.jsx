@@ -3,6 +3,7 @@
 // It includes: hero section, pain points, features, pricing, and email capture
 
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "./supabase";
 
 export default function App() {
@@ -10,6 +11,7 @@ export default function App() {
   const [email, setEmail] = useState("");
   // This shows a thank you message after they sign up
   const [submitted, setSubmitted] = useState(false);
+  const navigate = useNavigate();
 
   // This runs when they click the sign up button
   const handleSubmit = async () => {
@@ -54,24 +56,11 @@ export default function App() {
         </p>
 
         {/* Email capture - the most important element on the page */}
-        {!submitted ? (
-          <div style={styles.captureBox}>
-            <input
-              type="email"
-              placeholder="Enter your email for early access"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={styles.input}
-            />
-            <button onClick={handleSubmit} style={styles.ctaButton}>
-              Get Early Access →
-            </button>
-          </div>
-        ) : (
-          <div style={styles.thankYou}>
-            🎉 You're on the list! We'll be in touch very soon.
-          </div>
-        )}
+        <div style={styles.captureBox}>
+          <button onClick={() => navigate("/auth")} style={styles.ctaButton}>
+            Start Free Trial →
+          </button>
+        </div>
         <p style={styles.heroSmall}>
           No credit card. No commitment. Cancel any time.
         </p>
@@ -170,10 +159,7 @@ export default function App() {
               </li>
             ))}
           </ul>
-          <button
-            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            style={styles.pricingCta}
-          >
+          <button onClick={() => navigate("/auth")} style={styles.pricingCta}>
             Start Free Trial →
           </button>
           <p style={styles.pricingSmall}>
